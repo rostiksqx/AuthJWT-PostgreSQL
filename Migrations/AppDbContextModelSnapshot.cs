@@ -30,17 +30,11 @@ namespace Auth.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Name")
-                        .HasColumnType("text");
-
                     b.Property<string>("Password")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Role")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Surname")
                         .HasColumnType("text");
 
                     b.HasKey("Id");

@@ -23,42 +23,54 @@ namespace Auth.Controllers
             _context = context;
         }
 
-        [AllowAnonymous]
+        public record LoginModel(string Email, string Password);
+        
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] UserLogin userLogin)
+        public async Task<IActionResult> Login([FromBody] LoginModel userLogin)
         {
+            if (!IsValidEmail(userLogin.Email)) return BadRequest("Invalid email");
+            
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userLogin.Email);
             
             if (user != null && BCrypt.Net.BCrypt.Verify(userLogin.Password, user.Password))
             {
                 var token = Generate(user);
-                return Ok(token);
+                return Ok(new { Token = token, user.Email });
             }
-            return Unauthorized();
+            return BadRequest();
         }
 
+        public record RegisterModel(string Email, string Password, string ConfirmPassword);
+
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] UserRegister user)
+        public async Task<IActionResult> Register([FromBody] RegisterModel user)
         {
+            if (!IsValidEmail(user.Email)) return BadRequest("Invalid email");
+            
+            if (user.Password != user.ConfirmPassword) return BadRequest("Passwords do not match");
+            
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == user.Email);
             
-            if (existingUser != null)
-            {
-                return BadRequest("User already exists");
-            }
+            if (existingUser != null) return Conflict("User already exists");
             
             var newUser = new UserModel
             {
                 Email = user.Email,
-                Name = user.Name,
-                Surname = user.Surname,
                 Password = BCrypt.Net.BCrypt.HashPassword(user.Password),
             };
+            
             await _context.Users.AddAsync(newUser);
             await _context.SaveChangesAsync();
             
             var token = Generate(newUser);
-            return Ok(token);
+            return Ok(new { Token = token, newUser.Email });
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public IActionResult Get()
+        {
+            return Ok("Hello");
         }
 
         private string Generate(UserModel user)
@@ -68,8 +80,6 @@ namespace Auth.Controllers
             var claims = new[]
             {
                 new Claim("email", user.Email),
-                new Claim("name", user.Name),
-                new Claim("surname", user.Surname),
                 new Claim("role", user.Role)
             };
             var token = new JwtSecurityToken(_configuration["Jwt:Issuer"], 
@@ -79,6 +89,19 @@ namespace Auth.Controllers
                 signingCredentials: credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+        
+        private bool IsValidEmail(string userEmail)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(userEmail);
+                return addr.Address == userEmail;
+            }
+            catch
+            {
+                return false;
+            }
         }
     };
 }
