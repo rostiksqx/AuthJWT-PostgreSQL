@@ -66,7 +66,7 @@ namespace Auth.Controllers
             return Ok(new { Token = token, newUser.Email });
         }
 
-        [HttpGet("me")]
+        [HttpGet("check")]
         [Authorize]
         public IActionResult Get()
         {

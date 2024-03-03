@@ -35,7 +35,56 @@ namespace Auth.Controllers
             userToUpdate.Email = body.Email;
             var res = await _context.SaveChangesAsync();
             
-            return res > 0 ? Ok() : Problem();
+            return res > 0 ? Ok("Updated") : Problem();
+        }
+        
+        public record PasswordBody(string OldPassword, string NewPassword);
+
+        [HttpPut("password")]
+        [Authorize]
+        public async Task<IActionResult> Password([FromBody] PasswordBody body)
+        {
+            var user = GetCurrentUser();
+            if (user is null) return Unauthorized();
+            
+            var userToUpdate = await _context.Users.FirstOrDefaultAsync(u => u.Email == user.Email);
+            if (userToUpdate is null) return NotFound();
+            
+            if (!BCrypt.Net.BCrypt.Verify(body.OldPassword, userToUpdate.Password)) return BadRequest("Wrong password");
+            
+            userToUpdate.Password = BCrypt.Net.BCrypt.HashPassword(body.NewPassword);
+            var res = await _context.SaveChangesAsync();
+            
+            return res > 0 ? Ok("Updated") : Problem();
+        }
+        
+        [HttpDelete]
+        [Authorize]
+        public async Task<IActionResult> Delete()
+        {
+            var user = GetCurrentUser();
+            if (user is null) return Unauthorized();
+            
+            var userToDelete = await _context.Users.FirstOrDefaultAsync(u => u.Email == user.Email);
+            if (userToDelete is null) return NotFound();
+            
+            _context.Users.Remove(userToDelete);
+            var res = await _context.SaveChangesAsync();
+            
+            return res > 0 ? Ok("Deleted") : Problem();
+        }
+        
+        [HttpGet("me")]
+        [Authorize]
+        public IActionResult Get()
+        {
+            var user = GetCurrentUser();
+            if (user is null) return Unauthorized();
+            
+            var userToGet = _context.Users.FirstOrDefault(u => u.Email == user.Email);
+            if (userToGet is null) return NotFound();
+            
+            return Ok(user);
         }
 
         private UserModel GetCurrentUser()
