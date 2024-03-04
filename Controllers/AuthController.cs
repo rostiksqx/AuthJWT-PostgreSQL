@@ -49,9 +49,7 @@ namespace Auth.Controllers
             
             if (user.Password != user.ConfirmPassword) return BadRequest("Passwords do not match");
             
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == user.Email);
-            
-            if (existingUser != null) return Conflict("User already exists");
+            if (await _context.Users.AnyAsync(u => u.Email == user.Email)) return Conflict("User already exists");
             
             var newUser = new UserModel
             {
